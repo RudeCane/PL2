@@ -1,0 +1,16 @@
+from fastapi import Request, HTTPException
+from .db import get_db
+
+@app.middleware("http")
+async def validate_api_key(request: Request, call_next):
+    key = request.headers.get("x-api-key")
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM api_keys WHERE key = ?", (key,))
+    result = cursor.fetchone()
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+
+    cursor.execute("UPDATE api_keys SET usage_count = usage_count + 1, last_used = CURRENT_TIMESTAMP WHERE key = ?", (key,))
+    conn.commit()
+    return await call_next(request)
